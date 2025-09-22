@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>24-Hour Clock (Equal Thickness + Blur + Full-Hand Drag)</title>
+<title>24-Hour Clock (Equal Thickness + Numbers)</title>
 <style>
   :root{ --hour:#2563eb; --min:#dc2626; }
   body{font-family:Arial,Helvetica,sans-serif;text-align:center;background:#f0f0f0;margin:20px}
@@ -37,7 +37,6 @@
     Hour: <select id="startHour"></select>
     Minute: <select id="startMinute"></select>
   </div>
-  <div class="legend">Drag anywhere on the selected hand. Minute hand has a soft red glow.</div>
 </div>
 
 <div class="clock-wrap" style="border:2px solid #dc2626">
@@ -51,7 +50,6 @@
     Hour: <select id="endHour"></select>
     Minute: <select id="endMinute"></select>
   </div>
-  <div class="legend">Only the selected hand moves.</div>
 </div>
 
 <div class="info">
@@ -61,7 +59,6 @@
 </div>
 
 <script>
-/* ---------- Shared state (minutes from 00:00) ---------- */
 let startTotal = 9*60, endTotal = 17*60;
 
 const pad = n => String(n).padStart(2,"0");
@@ -86,7 +83,6 @@ function scaleCanvas(canvas){
   return {ctx, r: Math.min(rect.width, rect.height)/2};
 }
 
-/* distance from point P to line segment AB */
 function distPointToSeg(px,py, ax,ay, bx,by){
   const ABx=bx-ax, ABy=by-ay, APx=px-ax, APy=py-ay;
   const ab2 = ABx*ABx + ABy*ABy;
@@ -102,18 +98,14 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   const btnHour   = document.querySelector(`.btn.hour[data-target="${id}"]`);
   const btnMinute = document.querySelector(`.btn.minute[data-target="${id}"]`);
 
-  // Equal thickness for both hands
   const HOUR_W = 5, HOUR_W_ACTIVE = 7;
   const MIN_W  = 5, MIN_W_ACTIVE  = 7;
-
-  // Wide hitboxes so you can drag from anywhere along the selected hand
   const HITBOX_RADIUS = 18;
 
   let activeHand = "hour";
   const getTotal = ()=> isStart ? startTotal : endTotal;
   const setTotal = v => { if(isStart) startTotal=v; else endTotal=v; };
 
-  // dropdowns
   for(let i=0;i<24;i++){ const o=document.createElement("option"); o.value=i; o.text=i; hourSel.appendChild(o); }
   for(let i=0;i<60;i++){ const o=document.createElement("option"); o.value=i; o.text=pad(i); minSel.appendChild(o); }
   let {h,m} = hmFromMin(getTotal()); hourSel.value=h; minSel.value=m;
@@ -133,15 +125,14 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     ctx.translate(r,r);
     ctx.clearRect(-r,-r,2*r,2*r);
 
-    // dial
+    // dial + numbers
     ctx.beginPath(); ctx.arc(0,0,r-4,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
-    // hour marks + labels
     ctx.font="12px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
     for(let i=0;i<24;i++){
       const a=(i/24)*Math.PI*2 - Math.PI/2;
       const x=Math.cos(a)*(r-20), y=Math.sin(a)*(r-20);
-      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fillStyle="#000"; ctx.fill();
-      ctx.fillText(i, Math.cos(a)*(r-40), Math.sin(a)*(r-40));
+      ctx.fillText(i, Math.cos(a)*(r-35), Math.sin(a)*(r-35));
+      ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2); ctx.fillStyle="#000"; ctx.fill();
     }
 
     // hour hand
@@ -152,7 +143,7 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ha)*(r-50), Math.sin(ha)*(r-50)); ctx.stroke();
     ctx.restore();
 
-    // minute hand (same thickness, with soft red glow)
+    // minute hand
     const ma = (m/60)*Math.PI*2 - Math.PI/2;
     ctx.save();
     ctx.strokeStyle = "var(--min)";
@@ -170,7 +161,6 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
 
   const angleFrom = (x,y)=> (Math.atan2(y,x)+Math.PI/2+Math.PI*2)%(Math.PI*2);
 
-  // Hit test against the currently selected hand (full segment)
   function handHitTest(clientX,clientY){
     const rect = canvas.getBoundingClientRect();
     const px = clientX - rect.left - rect.width/2;
@@ -199,9 +189,7 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   }
 
   let dragging=false;
-  function onDown(clientX,clientY){
-    if(handHitTest(clientX,clientY)){ dragging=true; updateFromPoint(clientX,clientY); }
-  }
+  function onDown(clientX,clientY){ if(handHitTest(clientX,clientY)){ dragging=true; updateFromPoint(clientX,clientY); } }
   function onMove(clientX,clientY){ if(dragging) updateFromPoint(clientX,clientY); }
   function stop(){ dragging=false; }
 
@@ -217,11 +205,9 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   hourSel.addEventListener("change", e=>{ h=(+e.target.value)||0; setActive("hour"); commit(); });
   minSel .addEventListener("change", e=>{ m=(+e.target.value)||0; setActive("minute"); commit(); });
 
-  setActive("hour");
-  commit();
+  setActive("hour"); commit();
 }
 
-/* build both clocks */
 Clock({id:"start", canvasId:"startClock", hourSelectId:"startHour", minuteSelectId:"startMinute", isStart:true});
 Clock({id:"end",   canvasId:"endClock",   hourSelectId:"endHour",   minuteSelectId:"endMinute",   isStart:false});
 </script>
