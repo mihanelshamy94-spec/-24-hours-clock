@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive 24-Hour Clock Time Difference</title>
+<style>
+body {font-family: Arial; text-align: center; background:#f0f0f0; margin:20px;}
+canvas {background:#fff; border-radius:50%; display:block; margin:20px auto; touch-action: none; border:5px solid;}
+.info {margin-top:15px; font-size:16px;}
+select {margin:6px; padding:6px 12px; font-size:16px;}
+h2,h3 {margin-bottom:4px;}
+</style>
+</head>
+<body>
+
+<h2>24-Hour Clock - Drag Hands or Use Dropdown</h2>
+
+<div>
+<h3>Start Time</h3>
+<canvas id="startClock" width="300" height="300" style="border-color:green;"></canvas><br>
+Hour: <select id="startHour"></select>
+Minute: <select id="startMinute"></select>
+</div>
+
+<div>
+<h3>End Time</h3>
+<canvas id="endClock" width="300" height="300" style="border-color:red;"></canvas><br>
+Hour: <select id="endHour"></select>
+Minute: <select id="endMinute"></select>
+</div>
+
+<div class="info">
+<div>Start: <span id="startTime">--:--</span></div>
+<div>End: <span id="endTime">--:--</span></div>
+<div>Difference: <span id="diffTime">--:--</span></div>
+</div>
+
+<script>
+function createClock(canvasId, hourSelectId, minuteSelectId, isStart){
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+  const r = canvas.width/2;
+  ctx.translate(r,r);
+
+  let hour = 9, minute = 0;
+  let draggingHand = null;
+
+  // populate dropdowns
+  const hourSelect = document.getElementById(hourSelectId);
+  const minuteSelect = document.getElementById(minuteSelectId);
+  for(let i=0;i<24;i++){ let o=document.createElement("option"); o.value=i;o.text=i;hourSelect.appendChild(o);}
+  for(let i=0;i<60;i++){ let o=document.createElement("option"); o.value=i;o.text=i.toString().padStart(2,"0");minuteSelect.appendChild(o);}
+  hourSelect.value=hour; minuteSelect.value=minute;
+
+  function drawClock(){
+    ctx.clearRect(-r,-r,2*r,2*r);
+    // clock circle
+    ctx.beginPath(); ctx.arc(0,0,r-4,0,2*Math.PI); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
+    // hour marks
+    for(let i=0;i<24;i++){
+      let angle=(i/24)*2*Math.PI - Math.PI/2;
+      let x=Math.cos(angle)*(r-20), y=Math.sin(angle)*(r-20);
+      ctx.fillStyle="#000"; ctx.beginPath(); ctx.arc(x,y,3,0,2*Math.PI); ctx.fill();
+      ctx.font="12px Arial"; ctx.textAlign="center"; ctx.fillText(i, Math.cos(angle)*(r-40), Math.sin(angle)*(r-40)+4);
+    }
+    // hour hand
+    let hourAngle = ((hour + minute/60)/24)*2*Math.PI - Math.PI/2;
+    ctx.strokeStyle="blue"; ctx.lineWidth=6; ctx.beginPath();
+    ctx.moveTo(0,0); ctx.lineTo(Math.cos(hourAngle)*(r-50), Math.sin(hourAngle)*(r-50)); ctx.stroke();
+    // minute hand
+    let minAngle = (minute/60)*2*Math.PI - Math.PI/2;
+    ctx.strokeStyle="red"; ctx.lineWidth=4; ctx.beginPath();
+    ctx.moveTo(0,0); ctx.lineTo(Math.cos(minAngle)*(r-30), Math.sin(minAngle)*(r-30)); ctx.stroke();
+  }
+
+  function updateLabels(){
+    if(isStart){
+      document.getElementById("startTime").textContent = hour.toString().padStart(2,"0")+":"+minute.toString().padStart(2,"0");
+    } else {
+      document.getElementById("endTime").textContent = hour.toString().padStart(2,"0")+":"+minute.toString().padStart(2,"0");
+    }
+
+    let startT = document.getElementById("startTime").textContent.split(":");
+    let endT = document.getElementById("endTime").textContent.split(":");
+    let diff = (parseInt(endT[0])*60 + parseInt(endT[1])) - (parseInt(startT[0])*60 + parseInt(startT[1]));
+    if(diff<0) diff+=24*60;
+    document.getElementById("diffTime").textContent = Math.floor(diff/60)+"h "+diff%60+"m";
+  }
+
+  function getAngle(x,y){ return Math.atan2(y,x)+Math.PI/2; }
+  function getDistance(x,y){ return Math.sqrt(x*x+y*y); }
+
+  function updateTimeFromMouse(x,y){
+    let angle = getAngle(x,y); if(angle<0) angle+=2*Math.PI;
+    let dist = getDistance(x,y);
+    if(draggingHand === "hour" || (draggingHand===null && dist < r*0.6)){
+      hour = Math.floor((angle/(2*Math.PI))*24);
+      draggingHand = "hour";
+    } else {
+      minute = Math.floor((angle/(2*Math.PI))*60);
+      if(minute===60){minute=0; hour=(hour+1)%24;}
+      draggingHand = "minute";
+    }
+    hourSelect.value=hour; minuteSelect.value=minute;
+    drawClock(); updateLabels();
+  }
+
+  function startDrag(e){
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.touches?e.touches[0].clientX:e.clientX) - rect.left - r;
+    const y = (e.touches?e.touches[0].clientY:e.clientY) - rect.top - r;
+    updateTimeFromMouse(x,y);
+  }
+
+  canvas.addEventListener("mousedown", e=>{ draggingHand=null; startDrag(e); canvas.addEventListener("mousemove", startDrag); });
+  canvas.addEventListener("mouseup", e=>{ canvas.removeEventListener("mousemove", startDrag); draggingHand=null; });
+  canvas.addEventListener("mouseleave", e=>{ canvas.removeEventListener("mousemove", startDrag); draggingHand=null; });
+
+  canvas.addEventListener("touchstart", startDrag);
+  canvas.addEventListener("touchmove", startDrag);
+
+  // dropdown events
+  hourSelect.addEventListener("change", e=>{ hour=parseInt(e.target.value); drawClock(); updateLabels(); });
+  minuteSelect.addEventListener("change", e=>{ minute=parseInt(e.target.value); drawClock(); updateLabels(); });
+
+  drawClock(); updateLabels();
+}
+
+// create clocks
+createClock("startClock","startHour","startMinute", true);
+createClock("endClock","endHour","endMinute", false);
+</script>
+</body>
+</html>
