@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>24-Hour Clock (Minute Thinner + Blur)</title>
+<title>24-Hour Clock (Minute Hand Blur)</title>
 <style>
   :root{ --hour:#2563eb; --min:#dc2626; }
   body{font-family:Arial,Helvetica,sans-serif;text-align:center;background:#f0f0f0;margin:20px}
@@ -90,9 +90,9 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   const btnHour   = document.querySelector(`.btn.hour[data-target="${id}"]`);
   const btnMinute = document.querySelector(`.btn.minute[data-target="${id}"]`);
 
-  // Hour hand thicker, minute hand thinner + blur
-  const HOUR_W = 7, HOUR_W_ACTIVE = 9;
-  const MIN_W  = 3, MIN_W_ACTIVE  = 4;
+  // thickness
+  const HOUR_W = 5, HOUR_W_ACTIVE = 7;
+  const MIN_W  = 8, MIN_W_ACTIVE  = 10; // thinner than before but still thicker than hour
 
   let activeHand = "hour";
   const getTotal = ()=> isStart ? startTotal : endTotal;
@@ -120,21 +120,28 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     // dial
     ctx.beginPath(); ctx.arc(0,0,r-4,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
 
-    // hour hand (thicker)
+    // marks
+    ctx.font="12px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    for(let i=0;i<24;i++){
+      const a=(i/24)*Math.PI*2 - Math.PI/2;
+      ctx.fillText(i, Math.cos(a)*(r-40), Math.sin(a)*(r-40));
+    }
+
+    // hour hand
     const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
     ctx.save();
-    ctx.strokeStyle = "var(--hour)";
+    ctx.strokeStyle = activeHand==="hour" ? "var(--hour)" : "rgba(0,0,0,.4)";
     ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W;
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ha)*(r-50), Math.sin(ha)*(r-50)); ctx.stroke();
     ctx.restore();
 
-    // minute hand (thinner + blur glow)
+    // minute hand (blur glow)
     const ma = (m/60)*Math.PI*2 - Math.PI/2;
     ctx.save();
     ctx.strokeStyle = "var(--min)";
     ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
-    ctx.shadowColor = "rgba(220,38,38,.6)";
-    ctx.shadowBlur  = 10;
+    ctx.shadowColor = "rgba(220,38,38,.5)";
+    ctx.shadowBlur  = 8; // soft blur glow
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ma)*(r-30), Math.sin(ma)*(r-30)); ctx.stroke();
     ctx.restore();
 
