@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Interactive 24-Hour Clock (Hand Lock)</title>
+<title>Interactive 24-Hour Clock (Minute Hand Thicker)</title>
 <style>
   :root{
-    --accent: #2563eb;
-    --danger: #dc2626;
+    --hour-color:#2563eb;   /* blue */
+    --min-color:#dc2626;    /* red  */
   }
   body{font-family:Arial,Helvetica,sans-serif;text-align:center;background:#f0f0f0;margin:20px}
   .clock-wrap{background:#fff;border-radius:16px;max-width:420px;margin:18px auto;padding:14px 14px 18px;box-shadow:0 4px 18px rgba(0,0,0,.08)}
@@ -61,7 +61,7 @@
     Hour: <select id="endHour"></select>
     Minute: <select id="endMinute"></select>
   </div>
-  <div class="legend">Tap “Select Minute” to lock hour and adjust minutes.</div>
+  <div class="legend">Minute hand is thicker for easier touch.</div>
 </div>
 
 <div class="info">
@@ -91,7 +91,6 @@ function updateSummary(){
 function scaleCanvasForDPR(canvas){
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  // keep CSS size; scale backing store
   canvas.width = Math.round(rect.width*dpr);
   canvas.height= Math.round(rect.height*dpr);
   const ctx = canvas.getContext("2d");
@@ -99,17 +98,23 @@ function scaleCanvasForDPR(canvas){
   return {ctx, r: Math.min(rect.width, rect.height)/2};
 }
 
-/* ---------- Clock factory with hand locking ---------- */
+/* ---------- Clock with hand locking; MINUTE THICKER ---------- */
 function Clock(opts){
   const {idPrefix, canvasId, hourSelectId, minuteSelectId, isStart} = opts;
   const canvas = document.getElementById(canvasId);
   const hourSel = document.getElementById(hourSelectId);
   const minSel  = document.getElementById(minuteSelectId);
 
-  // UI: hand toggle buttons
+  // Hand widths (minute is thicker)
+  const HOUR_WIDTH_INACTIVE = 5;
+  const HOUR_WIDTH_ACTIVE   = 7;
+  const MIN_WIDTH_INACTIVE  = 10;  // thicker even when inactive
+  const MIN_WIDTH_ACTIVE    = 12;  // even thicker when active
+  const MIN_TIP_RADIUS      = 7;   // bigger tip circle to tap
+
   const btnHour   = document.querySelector(`.btn.hour[data-target="${idPrefix}"]`);
   const btnMinute = document.querySelector(`.btn.minute[data-target="${idPrefix}"]`);
-  let activeHand = "hour"; // default
+  let activeHand = "hour";
 
   const getTotal = ()=> isStart ? startTotal : endTotal;
   const setTotal = (val)=> { if(isStart) startTotal=val; else endTotal=val; };
@@ -123,23 +128,23 @@ function Clock(opts){
   hourSel.value=h; minSel.value=m;
 
   function setActive(hand){
-    activeHand = hand; // "hour" or "minute"
+    activeHand = hand;
     btnHour.setAttribute("aria-pressed", hand==="hour");
     btnMinute.setAttribute("aria-pressed", hand==="minute");
-    draw(); // refresh highlight
+    draw();
   }
 
   btnHour.addEventListener("click",  ()=> setActive("hour"));
   btnMinute.addEventListener("click",()=> setActive("minute"));
 
-  // drawing
+  // draw
   function draw(){
     const {ctx, r} = scaleCanvasForDPR(canvas);
     ctx.translate(r,r);
     ctx.clearRect(-r,-r,2*r,2*r);
     // dial
     ctx.beginPath(); ctx.arc(0,0,r-4,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
-    // hour marks and labels
+    // hour marks + labels
     ctx.font="12px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
     for(let i=0;i<24;i++){
       const a = (i/24)*Math.PI*2 - Math.PI/2;
@@ -151,19 +156,26 @@ function Clock(opts){
     // hour hand
     const hourAngle = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
     ctx.save();
-    ctx.strokeStyle = activeHand==="hour" ? "#2563eb" : "rgba(0,0,0,.35)";
-    ctx.lineWidth   = activeHand==="hour" ? 7 : 5;
+    ctx.strokeStyle = activeHand==="hour" ? "var(--hour-color)" : "rgba(0,0,0,.4)";
+    ctx.lineWidth   = activeHand==="hour" ? HOUR_WIDTH_ACTIVE : HOUR_WIDTH_INACTIVE;
     if(activeHand==="hour"){ ctx.shadowColor="rgba(37,99,235,.45)"; ctx.shadowBlur=12; }
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(hourAngle)*(r-50), Math.sin(hourAngle)*(r-50)); ctx.stroke();
     ctx.restore();
 
-    // minute hand
+    // minute hand (THICKER + tip circle)
     const minAngle = (m/60)*Math.PI*2 - Math.PI/2;
+    const minLen = r-30;
+    const minX = Math.cos(minAngle)*minLen, minY = Math.sin(minAngle)*minLen;
+
     ctx.save();
-    ctx.strokeStyle = activeHand==="minute" ? "#dc2626" : "rgba(0,0,0,.35)";
-    ctx.lineWidth   = activeHand==="minute" ? 6 : 4;
+    ctx.strokeStyle = activeHand==="minute" ? "var(--min-color)" : "rgba(0,0,0,.55)";
+    ctx.lineWidth   = activeHand==="minute" ? MIN_WIDTH_ACTIVE : MIN_WIDTH_INACTIVE;
     if(activeHand==="minute"){ ctx.shadowColor="rgba(220,38,38,.45)"; ctx.shadowBlur=12; }
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(minAngle)*(r-30), Math.sin(minAngle)*(r-30)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(minX, minY); ctx.stroke();
+    // larger tip to make grabbing easy
+    ctx.beginPath(); ctx.arc(minX, minY, MIN_TIP_RADIUS, 0, Math.PI*2);
+    ctx.fillStyle = activeHand==="minute" ? "var(--min-color)" : "rgba(0,0,0,.55)";
+    ctx.fill();
     ctx.restore();
 
     // center cap
@@ -180,7 +192,7 @@ function Clock(opts){
   // pointer helpers
   const angleFrom = (x,y)=> (Math.atan2(y,x)+Math.PI/2+Math.PI*2)%(Math.PI*2);
 
-  // drag handling (locked to activeHand)
+  // drag handling (locked to selected hand)
   let dragging=false;
   function updateFromPoint(clientX, clientY){
     const rect = canvas.getBoundingClientRect();
@@ -212,7 +224,7 @@ function Clock(opts){
   canvas.addEventListener("touchmove",  onTouchMove,  {passive:false});
   canvas.addEventListener("touchend",   onTouchEnd);
 
-  // dropdowns also respect the lock (they set only their own hand)
+  // dropdowns respect the lock
   hourSel.addEventListener("change", e=>{ h=(+e.target.value)||0; setActive("hour"); commit(); });
   minSel .addEventListener("change", e=>{ m=(+e.target.value)||0; setActive("minute"); commit(); });
 
