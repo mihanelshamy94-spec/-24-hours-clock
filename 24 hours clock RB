@@ -160,7 +160,7 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
 
     // minute hand (SHORTER so it doesn't hide numbers)
     const ma = (m/60)*Math.PI*2 - Math.PI/2;
-    const MIN_LEN = r - 55; // shorter than before (inside numbers ring at r-42)
+    const MIN_LEN = r - 65; // shorter than before (inside numbers ring at r-42)
     ctx.save();
     ctx.strokeStyle = "var(--min)";
     ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
