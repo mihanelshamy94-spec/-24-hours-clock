@@ -131,7 +131,7 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     // dial ring
     ctx.beginPath(); ctx.arc(0,0,r-4,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
 
-    // BIG, BOLD numbers 0–23 + tick dots
+    // numbers 0–23 (bold) + tick dots
     ctx.save();
     ctx.fillStyle = "#111";
     ctx.font = "bold 14px Arial";
@@ -139,32 +139,36 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     ctx.textBaseline = "middle";
     for(let i=0;i<24;i++){
       const a = (i/24)*Math.PI*2 - Math.PI/2;
-      // number slightly inside the small tick dots
-      const nx = Math.cos(a)*(r-42), ny = Math.sin(a)*(r-42);
+      const nx = Math.cos(a)*(r-42), ny = Math.sin(a)*(r-42); // numbers ring
       ctx.fillText(i, nx, ny);
 
-      // small tick dot
-      const tx = Math.cos(a)*(r-24), ty = Math.sin(a)*(r-24);
+      const tx = Math.cos(a)*(r-24), ty = Math.sin(a)*(r-24); // tick ring
       ctx.beginPath(); ctx.arc(tx,ty,2,0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
 
-    // hour hand
+    // hour hand (inside numbers)
     const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
+    const HOUR_LEN = r - 55; // ~inside the numbers ring
     ctx.save();
     ctx.strokeStyle = "var(--hour)";
     ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W;
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ha)*(r-50), Math.sin(ha)*(r-50)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,0);
+    ctx.lineTo(Math.cos(ha)*HOUR_LEN, Math.sin(ha)*HOUR_LEN);
+    ctx.stroke();
     ctx.restore();
 
-    // minute hand (same thickness; soft red glow)
+    // minute hand (SHORTER so it doesn't hide numbers)
     const ma = (m/60)*Math.PI*2 - Math.PI/2;
+    const MIN_LEN = r - 55; // shorter than before (inside numbers ring at r-42)
     ctx.save();
     ctx.strokeStyle = "var(--min)";
     ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
-    ctx.shadowColor = "rgba(220,38,38,.45)";
-    ctx.shadowBlur  = 8;
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ma)*(r-30), Math.sin(ma)*(r-30)); ctx.stroke();
+    ctx.shadowColor = "rgba(220,38,38,.40)"; // softer glow so it won't spill onto numbers
+    ctx.shadowBlur  = 6;
+    ctx.beginPath(); ctx.moveTo(0,0);
+    ctx.lineTo(Math.cos(ma)*MIN_LEN, Math.sin(ma)*MIN_LEN);
+    ctx.stroke();
     ctx.restore();
 
     // center cap
@@ -182,13 +186,16 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     const py = clientY - rect.top  - rect.height/2;
     const r = Math.min(rect.width, rect.height)/2;
 
+    const HLEN = r - 55;
+    const MLEN = r - 55;
+
     if(activeHand==="hour"){
       const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
-      const hx = Math.cos(ha)*(r-50), hy = Math.sin(ha)*(r-50);
+      const hx = Math.cos(ha)*HLEN, hy = Math.sin(ha)*HLEN;
       return distPointToSeg(px,py, 0,0, hx,hy) <= HITBOX_RADIUS;
     }else{
       const ma = (m/60)*Math.PI*2 - Math.PI/2;
-      const mx = Math.cos(ma)*(r-30), my = Math.sin(ma)*(r-30);
+      const mx = Math.cos(ma)*MLEN, my = Math.sin(ma)*MLEN;
       return distPointToSeg(px,py, 0,0, mx,my) <= HITBOX_RADIUS;
     }
   }
