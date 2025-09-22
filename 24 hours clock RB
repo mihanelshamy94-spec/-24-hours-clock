@@ -186,8 +186,8 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     const py = clientY - rect.top  - rect.height/2;
     const r = Math.min(rect.width, rect.height)/2;
 
-    const HLEN = r - 55;
-    const MLEN = r - 55;
+    const HLEN = r - 65;
+    const MLEN = r - 65;
 
     if(activeHand==="hour"){
       const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
