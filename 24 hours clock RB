@@ -149,7 +149,7 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
 
     // hour hand (inside numbers)
     const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
-    const HOUR_LEN = r - 55; // ~inside the numbers ring
+    const HOUR_LEN = r - 65; // ~inside the numbers ring
     ctx.save();
     ctx.strokeStyle = "var(--hour)";
     ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W;
