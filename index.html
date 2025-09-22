@@ -1,135 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Interactive 24-Hour Clock Time Difference</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interactive 24-Hour Clock (Hand Lock)</title>
 <style>
-body {font-family: Arial; text-align: center; background:#f0f0f0; margin:20px;}
-canvas {background:#fff; border-radius:50%; display:block; margin:20px auto; touch-action: none; border:5px solid;}
-.info {margin-top:15px; font-size:16px;}
-select {margin:6px; padding:6px 12px; font-size:16px;}
-h2,h3 {margin-bottom:4px;}
+  :root{
+    --accent: #2563eb;
+    --danger: #dc2626;
+  }
+  body{font-family:Arial,Helvetica,sans-serif;text-align:center;background:#f0f0f0;margin:20px}
+  .clock-wrap{background:#fff;border-radius:16px;max-width:420px;margin:18px auto;padding:14px 14px 18px;box-shadow:0 4px 18px rgba(0,0,0,.08)}
+  h2{margin:0 0 14px}
+  h3{margin:6px 0 10px}
+  canvas{background:#fff;border-radius:50%;display:block;margin:12px auto;touch-action:none;border:5px solid; width:300px; height:300px}
+  .controls{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:8px 0 2px}
+  .btn{
+    cursor:pointer; user-select:none;
+    padding:8px 12px; border-radius:999px; border:1px solid #d0d0d0;
+    background:#fafafa; font-size:14px;
+  }
+  .btn[aria-pressed="true"]{border-color:#000; background:#fff}
+  .btn.hour{outline:2px solid rgba(37,99,235,.2)}
+  .btn.minute{outline:2px solid rgba(220,38,38,.2)}
+  select{margin:6px;padding:6px 10px;font-size:16px}
+  .row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;align-items:center}
+  .info{margin-top:16px;font-size:16px}
+  .legend{font-size:13px; opacity:.8}
+  @media (max-width:420px){
+    canvas{width:260px;height:260px}
+  }
 </style>
 </head>
 <body>
 
-<h2>24-Hour Clock - Drag Hands or Use Dropdown</h2>
+<h2>24-Hour Clock — Choose Hour then Minute</h2>
 
-<div>
-<h3>Start Time</h3>
-<canvas id="startClock" width="300" height="300" style="border-color:green;"></canvas><br>
-Hour: <select id="startHour"></select>
-Minute: <select id="startMinute"></select>
+<div class="clock-wrap" style="border:2px solid #16a34a">
+  <h3>Start Time</h3>
+  <div class="controls">
+    <button class="btn hour"   data-target="start" data-hand="hour"   aria-pressed="true">Select Hour</button>
+    <button class="btn minute" data-target="start" data-hand="minute" aria-pressed="false">Select Minute</button>
+  </div>
+  <canvas id="startClock" width="300" height="300" style="border-color:#16a34a"></canvas>
+  <div class="row">
+    Hour: <select id="startHour"></select>
+    Minute: <select id="startMinute"></select>
+  </div>
+  <div class="legend">Only the <b>selected</b> hand moves while dragging.</div>
 </div>
 
-<div>
-<h3>End Time</h3>
-<canvas id="endClock" width="300" height="300" style="border-color:red;"></canvas><br>
-Hour: <select id="endHour"></select>
-Minute: <select id="endMinute"></select>
+<div class="clock-wrap" style="border:2px solid #dc2626">
+  <h3>End Time</h3>
+  <div class="controls">
+    <button class="btn hour"   data-target="end" data-hand="hour"   aria-pressed="true">Select Hour</button>
+    <button class="btn minute" data-target="end" data-hand="minute" aria-pressed="false">Select Minute</button>
+  </div>
+  <canvas id="endClock" width="300" height="300" style="border-color:#dc2626"></canvas>
+  <div class="row">
+    Hour: <select id="endHour"></select>
+    Minute: <select id="endMinute"></select>
+  </div>
+  <div class="legend">Tap “Select Minute” to lock hour and adjust minutes.</div>
 </div>
 
 <div class="info">
-<div>Start: <span id="startTime">--:--</span></div>
-<div>End: <span id="endTime">--:--</span></div>
-<div>Difference: <span id="diffTime">--:--</span></div>
+  <div>Start: <span id="startTime">--:--</span></div>
+  <div>End: <span id="endTime">--:--</span></div>
+  <div>Difference: <span id="diffTime">--:--</span></div>
 </div>
 
 <script>
-function createClock(canvasId, hourSelectId, minuteSelectId, isStart){
-  const canvas = document.getElementById(canvasId);
-  const ctx = canvas.getContext("2d");
-  const r = canvas.width/2;
-  ctx.translate(r,r);
+/* ---------- Shared state (minutes from 00:00) ---------- */
+let startTotal = 9*60;   // 09:00
+let endTotal   = 17*60;  // 17:00
 
-  let hour = 9, minute = 0;
-  let draggingHand = null;
+const pad = n => String(n).padStart(2,"0");
+const hmFromMinutes = m => ({h: Math.floor((m%1440+1440)%1440/60), m: ((m%60)+60)%60});
+const minutesFromHM = (h,m) => ((h*60+m)%1440+1440)%1440;
 
-  // populate dropdowns
-  const hourSelect = document.getElementById(hourSelectId);
-  const minuteSelect = document.getElementById(minuteSelectId);
-  for(let i=0;i<24;i++){ let o=document.createElement("option"); o.value=i;o.text=i;hourSelect.appendChild(o);}
-  for(let i=0;i<60;i++){ let o=document.createElement("option"); o.value=i;o.text=i.toString().padStart(2,"0");minuteSelect.appendChild(o);}
-  hourSelect.value=hour; minuteSelect.value=minute;
-
-  function drawClock(){
-    ctx.clearRect(-r,-r,2*r,2*r);
-    // clock circle
-    ctx.beginPath(); ctx.arc(0,0,r-4,0,2*Math.PI); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
-    // hour marks
-    for(let i=0;i<24;i++){
-      let angle=(i/24)*2*Math.PI - Math.PI/2;
-      let x=Math.cos(angle)*(r-20), y=Math.sin(angle)*(r-20);
-      ctx.fillStyle="#000"; ctx.beginPath(); ctx.arc(x,y,3,0,2*Math.PI); ctx.fill();
-      ctx.font="12px Arial"; ctx.textAlign="center"; ctx.fillText(i, Math.cos(angle)*(r-40), Math.sin(angle)*(r-40)+4);
-    }
-    // hour hand
-    let hourAngle = ((hour + minute/60)/24)*2*Math.PI - Math.PI/2;
-    ctx.strokeStyle="blue"; ctx.lineWidth=6; ctx.beginPath();
-    ctx.moveTo(0,0); ctx.lineTo(Math.cos(hourAngle)*(r-50), Math.sin(hourAngle)*(r-50)); ctx.stroke();
-    // minute hand
-    let minAngle = (minute/60)*2*Math.PI - Math.PI/2;
-    ctx.strokeStyle="red"; ctx.lineWidth=4; ctx.beginPath();
-    ctx.moveTo(0,0); ctx.lineTo(Math.cos(minAngle)*(r-30), Math.sin(minAngle)*(r-30)); ctx.stroke();
-  }
-
-  function updateLabels(){
-    if(isStart){
-      document.getElementById("startTime").textContent = hour.toString().padStart(2,"0")+":"+minute.toString().padStart(2,"0");
-    } else {
-      document.getElementById("endTime").textContent = hour.toString().padStart(2,"0")+":"+minute.toString().padStart(2,"0");
-    }
-
-    let startT = document.getElementById("startTime").textContent.split(":");
-    let endT = document.getElementById("endTime").textContent.split(":");
-    let diff = (parseInt(endT[0])*60 + parseInt(endT[1])) - (parseInt(startT[0])*60 + parseInt(startT[1]));
-    if(diff<0) diff+=24*60;
-    document.getElementById("diffTime").textContent = Math.floor(diff/60)+"h "+diff%60+"m";
-  }
-
-  function getAngle(x,y){ return Math.atan2(y,x)+Math.PI/2; }
-  function getDistance(x,y){ return Math.sqrt(x*x+y*y); }
-
-  function updateTimeFromMouse(x,y){
-    let angle = getAngle(x,y); if(angle<0) angle+=2*Math.PI;
-    let dist = getDistance(x,y);
-    if(draggingHand === "hour" || (draggingHand===null && dist < r*0.6)){
-      hour = Math.floor((angle/(2*Math.PI))*24);
-      draggingHand = "hour";
-    } else {
-      minute = Math.floor((angle/(2*Math.PI))*60);
-      if(minute===60){minute=0; hour=(hour+1)%24;}
-      draggingHand = "minute";
-    }
-    hourSelect.value=hour; minuteSelect.value=minute;
-    drawClock(); updateLabels();
-  }
-
-  function startDrag(e){
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.touches?e.touches[0].clientX:e.clientX) - rect.left - r;
-    const y = (e.touches?e.touches[0].clientY:e.clientY) - rect.top - r;
-    updateTimeFromMouse(x,y);
-  }
-
-  canvas.addEventListener("mousedown", e=>{ draggingHand=null; startDrag(e); canvas.addEventListener("mousemove", startDrag); });
-  canvas.addEventListener("mouseup", e=>{ canvas.removeEventListener("mousemove", startDrag); draggingHand=null; });
-  canvas.addEventListener("mouseleave", e=>{ canvas.removeEventListener("mousemove", startDrag); draggingHand=null; });
-
-  canvas.addEventListener("touchstart", startDrag);
-  canvas.addEventListener("touchmove", startDrag);
-
-  // dropdown events
-  hourSelect.addEventListener("change", e=>{ hour=parseInt(e.target.value); drawClock(); updateLabels(); });
-  minuteSelect.addEventListener("change", e=>{ minute=parseInt(e.target.value); drawClock(); updateLabels(); });
-
-  drawClock(); updateLabels();
+function updateSummary(){
+  const s=hmFromMinutes(startTotal), e=hmFromMinutes(endTotal);
+  document.getElementById("startTime").textContent = `${pad(s.h)}:${pad(s.m)}`;
+  document.getElementById("endTime").textContent   = `${pad(e.h)}:${pad(e.m)}`;
+  let diff=endTotal-startTotal; if(diff<0) diff+=1440;
+  document.getElementById("diffTime").textContent = `${Math.floor(diff/60)}h ${diff%60}m`;
 }
 
-// create clocks
-createClock("startClock","startHour","startMinute", true);
-createClock("endClock","endHour","endMinute", false);
+/* ---------- Canvas util ---------- */
+function scaleCanvasForDPR(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  // keep CSS size; scale backing store
+  canvas.width = Math.round(rect.width*dpr);
+  canvas.height= Math.round(rect.height*dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx, r: Math.min(rect.width, rect.height)/2};
+}
+
+/* ---------- Clock factory with hand locking ---------- */
+function Clock(opts){
+  const {idPrefix, canvasId, hourSelectId, minuteSelectId, isStart} = opts;
+  const canvas = document.getElementById(canvasId);
+  const hourSel = document.getElementById(hourSelectId);
+  const minSel  = document.getElementById(minuteSelectId);
+
+  // UI: hand toggle buttons
+  const btnHour   = document.querySelector(`.btn.hour[data-target="${idPrefix}"]`);
+  const btnMinute = document.querySelector(`.btn.minute[data-target="${idPrefix}"]`);
+  let activeHand = "hour"; // default
+
+  const getTotal = ()=> isStart ? startTotal : endTotal;
+  const setTotal = (val)=> { if(isStart) startTotal=val; else endTotal=val; };
+
+  // populate dropdowns
+  for(let i=0;i<24;i++){ const o=document.createElement("option"); o.value=i; o.text=i; hourSel.appendChild(o); }
+  for(let i=0;i<60;i++){ const o=document.createElement("option"); o.value=i; o.text=pad(i); minSel.appendChild(o); }
+
+  // init from shared
+  let {h, m} = hmFromMinutes(getTotal());
+  hourSel.value=h; minSel.value=m;
+
+  function setActive(hand){
+    activeHand = hand; // "hour" or "minute"
+    btnHour.setAttribute("aria-pressed", hand==="hour");
+    btnMinute.setAttribute("aria-pressed", hand==="minute");
+    draw(); // refresh highlight
+  }
+
+  btnHour.addEventListener("click",  ()=> setActive("hour"));
+  btnMinute.addEventListener("click",()=> setActive("minute"));
+
+  // drawing
+  function draw(){
+    const {ctx, r} = scaleCanvasForDPR(canvas);
+    ctx.translate(r,r);
+    ctx.clearRect(-r,-r,2*r,2*r);
+    // dial
+    ctx.beginPath(); ctx.arc(0,0,r-4,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
+    // hour marks and labels
+    ctx.font="12px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    for(let i=0;i<24;i++){
+      const a = (i/24)*Math.PI*2 - Math.PI/2;
+      const x = Math.cos(a)*(r-20), y = Math.sin(a)*(r-20);
+      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fillStyle="#000"; ctx.fill();
+      ctx.fillText(i, Math.cos(a)*(r-40), Math.sin(a)*(r-40));
+    }
+
+    // hour hand
+    const hourAngle = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
+    ctx.save();
+    ctx.strokeStyle = activeHand==="hour" ? "#2563eb" : "rgba(0,0,0,.35)";
+    ctx.lineWidth   = activeHand==="hour" ? 7 : 5;
+    if(activeHand==="hour"){ ctx.shadowColor="rgba(37,99,235,.45)"; ctx.shadowBlur=12; }
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(hourAngle)*(r-50), Math.sin(hourAngle)*(r-50)); ctx.stroke();
+    ctx.restore();
+
+    // minute hand
+    const minAngle = (m/60)*Math.PI*2 - Math.PI/2;
+    ctx.save();
+    ctx.strokeStyle = activeHand==="minute" ? "#dc2626" : "rgba(0,0,0,.35)";
+    ctx.lineWidth   = activeHand==="minute" ? 6 : 4;
+    if(activeHand==="minute"){ ctx.shadowColor="rgba(220,38,38,.45)"; ctx.shadowBlur=12; }
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(minAngle)*(r-30), Math.sin(minAngle)*(r-30)); ctx.stroke();
+    ctx.restore();
+
+    // center cap
+    ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fillStyle="#111"; ctx.fill();
+  }
+
+  function commit(){
+    const total = minutesFromHM(h,m);
+    setTotal(total);
+    updateSummary();
+    draw();
+  }
+
+  // pointer helpers
+  const angleFrom = (x,y)=> (Math.atan2(y,x)+Math.PI/2+Math.PI*2)%(Math.PI*2);
+
+  // drag handling (locked to activeHand)
+  let dragging=false;
+  function updateFromPoint(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left - rect.width/2;
+    const y = clientY - rect.top  - rect.height/2;
+    const a = angleFrom(x,y);
+    if(activeHand==="hour"){
+      h = Math.floor((a/(Math.PI*2))*24) % 24;
+      hourSel.value=h;
+    }else{
+      m = Math.floor((a/(Math.PI*2))*60) % 60;
+      minSel.value=m;
+    }
+    commit();
+  }
+
+  function onMouseDown(e){ dragging=true; updateFromPoint(e.clientX,e.clientY); window.addEventListener("mousemove", onMouseMove); }
+  function onMouseMove(e){ if(dragging) updateFromPoint(e.clientX,e.clientY); }
+  function onMouseUp(){ dragging=false; window.removeEventListener("mousemove", onMouseMove); }
+
+  function onTouchStart(e){ e.preventDefault(); dragging=true; const t=e.touches[0]; updateFromPoint(t.clientX,t.clientY); }
+  function onTouchMove(e){ e.preventDefault(); if(!dragging) return; const t=e.touches[0]; updateFromPoint(t.clientX,t.clientY); }
+  function onTouchEnd(){ dragging=false; }
+
+  canvas.addEventListener("mousedown", onMouseDown);
+  window.addEventListener("mouseup", onMouseUp);
+  canvas.addEventListener("mouseleave", onMouseUp);
+  canvas.addEventListener("touchstart", onTouchStart, {passive:false});
+  canvas.addEventListener("touchmove",  onTouchMove,  {passive:false});
+  canvas.addEventListener("touchend",   onTouchEnd);
+
+  // dropdowns also respect the lock (they set only their own hand)
+  hourSel.addEventListener("change", e=>{ h=(+e.target.value)||0; setActive("hour"); commit(); });
+  minSel .addEventListener("change", e=>{ m=(+e.target.value)||0; setActive("minute"); commit(); });
+
+  // init
+  setActive("hour");
+  commit();
+}
+
+/* ---------- Build both clocks ---------- */
+Clock({idPrefix:"start", canvasId:"startClock", hourSelectId:"startHour", minuteSelectId:"startMinute", isStart:true});
+Clock({idPrefix:"end",   canvasId:"endClock",   hourSelectId:"endHour",   minuteSelectId:"endMinute",   isStart:false});
 </script>
 </body>
 </html>
