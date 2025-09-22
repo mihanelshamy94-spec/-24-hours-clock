@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>24-Hour Clock (Thick Minute + Full-hand Drag)</title>
+<title>24-Hour Clock (Minute Thinner + Blur)</title>
 <style>
   :root{ --hour:#2563eb; --min:#dc2626; }
   body{font-family:Arial,Helvetica,sans-serif;text-align:center;background:#f0f0f0;margin:20px}
@@ -37,7 +37,6 @@
     Hour: <select id="startHour"></select>
     Minute: <select id="startMinute"></select>
   </div>
-  <div class="legend">Drag anywhere on the selected hand. Minute hand is thicker.</div>
 </div>
 
 <div class="clock-wrap" style="border:2px solid #dc2626">
@@ -51,7 +50,6 @@
     Hour: <select id="endHour"></select>
     Minute: <select id="endMinute"></select>
   </div>
-  <div class="legend">Only the selected hand moves.</div>
 </div>
 
 <div class="info">
@@ -61,7 +59,6 @@
 </div>
 
 <script>
-/* ---------- Shared state (minutes from 00:00) ---------- */
 let startTotal = 9*60, endTotal = 17*60;
 
 const pad = n => String(n).padStart(2,"0");
@@ -86,16 +83,6 @@ function scaleCanvas(canvas){
   return {ctx, r: Math.min(rect.width, rect.height)/2};
 }
 
-/* distance from point P to line segment AB */
-function distPointToSeg(px,py, ax,ay, bx,by){
-  const ABx=bx-ax, ABy=by-ay, APx=px-ax, APy=py-ay;
-  const ab2 = ABx*ABx + ABy*ABy;
-  const t = ab2 ? Math.max(0, Math.min(1, (APx*ABx + APy*ABy)/ab2)) : 0;
-  const cx = ax + t*ABx, cy = ay + t*ABy;
-  const dx = px - cx, dy = py - cy;
-  return Math.hypot(dx,dy);
-}
-
 function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   const canvas = document.getElementById(canvasId);
   const hourSel = document.getElementById(hourSelectId);
@@ -103,20 +90,14 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   const btnHour   = document.querySelector(`.btn.hour[data-target="${id}"]`);
   const btnMinute = document.querySelector(`.btn.minute[data-target="${id}"]`);
 
-  // thicker minute hand + bigger hitbox
-  const HOUR_W_INACTIVE=5, HOUR_W_ACTIVE=7;
-  const MIN_W_INACTIVE =10, MIN_W_ACTIVE =12;
-  const MIN_TIP_R      =7;
-
-  // hitbox radii (how easy it is to grab along the line)
-  const HOUR_HIT = 14;
-  const MIN_HIT  = 22; // easier to grab minutes anywhere on the red hand
+  // Hour hand thicker, minute hand thinner + blur
+  const HOUR_W = 7, HOUR_W_ACTIVE = 9;
+  const MIN_W  = 3, MIN_W_ACTIVE  = 4;
 
   let activeHand = "hour";
   const getTotal = ()=> isStart ? startTotal : endTotal;
   const setTotal = v => { if(isStart) startTotal=v; else endTotal=v; };
 
-  // dropdowns
   for(let i=0;i<24;i++){ const o=document.createElement("option"); o.value=i; o.text=i; hourSel.appendChild(o); }
   for(let i=0;i<60;i++){ const o=document.createElement("option"); o.value=i; o.text=pad(i); minSel.appendChild(o); }
   let {h,m} = hmFromMin(getTotal()); hourSel.value=h; minSel.value=m;
@@ -138,35 +119,23 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
 
     // dial
     ctx.beginPath(); ctx.arc(0,0,r-4,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
-    // marks
-    ctx.font="12px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
-    for(let i=0;i<24;i++){
-      const a=(i/24)*Math.PI*2 - Math.PI/2;
-      const x=Math.cos(a)*(r-20), y=Math.sin(a)*(r-20);
-      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fillStyle="#000"; ctx.fill();
-      ctx.fillText(i, Math.cos(a)*(r-40), Math.sin(a)*(r-40));
-    }
 
-    // hour hand
+    // hour hand (thicker)
     const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
     ctx.save();
-    ctx.strokeStyle = activeHand==="hour" ? "var(--hour)" : "rgba(0,0,0,.4)";
-    ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W_INACTIVE;
-    if(activeHand==="hour"){ ctx.shadowColor="rgba(37,99,235,.45)"; ctx.shadowBlur=12; }
+    ctx.strokeStyle = "var(--hour)";
+    ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W;
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ha)*(r-50), Math.sin(ha)*(r-50)); ctx.stroke();
     ctx.restore();
 
-    // minute hand (THICKER + tip)
+    // minute hand (thinner + blur glow)
     const ma = (m/60)*Math.PI*2 - Math.PI/2;
-    const mLen = r-30, mx = Math.cos(ma)*mLen, my = Math.sin(ma)*mLen;
     ctx.save();
-    ctx.strokeStyle = activeHand==="minute" ? "var(--min)" : "rgba(0,0,0,.55)";
-    ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W_INACTIVE;
-    if(activeHand==="minute"){ ctx.shadowColor="rgba(220,38,38,.45)"; ctx.shadowBlur=12; }
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(mx,my); ctx.stroke();
-    ctx.beginPath(); ctx.arc(mx,my,MIN_TIP_R,0,Math.PI*2);
-    ctx.fillStyle = activeHand==="minute" ? "var(--min)" : "rgba(0,0,0,.55)";
-    ctx.fill();
+    ctx.strokeStyle = "var(--min)";
+    ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
+    ctx.shadowColor = "rgba(220,38,38,.6)";
+    ctx.shadowBlur  = 10;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ma)*(r-30), Math.sin(ma)*(r-30)); ctx.stroke();
     ctx.restore();
 
     // center cap
@@ -176,25 +145,6 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   function commit(){ setTotal(minFromHM(h,m)); updateSummary(); draw(); }
 
   const angleFrom = (x,y)=> (Math.atan2(y,x)+Math.PI/2+Math.PI*2)%(Math.PI*2);
-
-  let dragging=false;
-  function handHitTest(clientX,clientY){
-    // check if touch is near the ACTIVE hand anywhere along its length
-    const rect = canvas.getBoundingClientRect();
-    const px = clientX - rect.left - rect.width/2;
-    const py = clientY - rect.top  - rect.height/2;
-    const r = Math.min(rect.width, rect.height)/2;
-
-    if(activeHand==="hour"){
-      const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
-      const hx = Math.cos(ha)*(r-50), hy = Math.sin(ha)*(r-50);
-      return distPointToSeg(px,py, 0,0, hx,hy) <= HOUR_HIT;
-    }else{
-      const ma = (m/60)*Math.PI*2 - Math.PI/2;
-      const mx = Math.cos(ma)*(r-30), my = Math.sin(ma)*(r-30);
-      return distPointToSeg(px,py, 0,0, mx,my) <= MIN_HIT;
-    }
-  }
 
   function updateFromPoint(clientX, clientY){
     const rect = canvas.getBoundingClientRect();
@@ -206,34 +156,25 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     commit();
   }
 
-  function onDown(clientX,clientY){
-    // only start dragging if user touched NEAR the selected hand (anywhere along it)
-    if(handHitTest(clientX,clientY)){ dragging=true; updateFromPoint(clientX,clientY); }
-  }
+  let dragging=false;
+  function onDown(clientX,clientY){ dragging=true; updateFromPoint(clientX,clientY); }
+  function onMove(clientX,clientY){ if(dragging) updateFromPoint(clientX,clientY); }
+  function stop(){ dragging=false; }
 
-  function onMouseDown(e){ onDown(e.clientX,e.clientY); window.addEventListener("mousemove", onMouseMove); }
-  function onMouseMove(e){ if(dragging) updateFromPoint(e.clientX,e.clientY); }
-  function onMouseUp(){ dragging=false; window.removeEventListener("mousemove", onMouseMove); }
+  canvas.addEventListener("mousedown", e=>{onDown(e.clientX,e.clientY); window.addEventListener("mousemove", move);});
+  function move(e){onMove(e.clientX,e.clientY);}
+  window.addEventListener("mouseup", stop);
 
-  function onTouchStart(e){ e.preventDefault(); const t=e.touches[0]; onDown(t.clientX,t.clientY); }
-  function onTouchMove(e){ e.preventDefault(); if(!dragging) return; const t=e.touches[0]; updateFromPoint(t.clientX,t.clientY); }
-  function onTouchEnd(){ dragging=false; }
-
-  canvas.addEventListener("mousedown", onMouseDown);
-  window.addEventListener("mouseup", onMouseUp);
-  canvas.addEventListener("mouseleave", onMouseUp);
-  canvas.addEventListener("touchstart", onTouchStart, {passive:false});
-  canvas.addEventListener("touchmove",  onTouchMove,  {passive:false});
-  canvas.addEventListener("touchend",   onTouchEnd);
+  canvas.addEventListener("touchstart", e=>{e.preventDefault(); onDown(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+  canvas.addEventListener("touchmove", e=>{e.preventDefault(); onMove(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+  canvas.addEventListener("touchend", stop);
 
   hourSel.addEventListener("change", e=>{ h=(+e.target.value)||0; setActive("hour"); commit(); });
   minSel .addEventListener("change", e=>{ m=(+e.target.value)||0; setActive("minute"); commit(); });
 
-  setActive("hour");
-  commit();
+  setActive("hour"); commit();
 }
 
-/* build both clocks */
 Clock({id:"start", canvasId:"startClock", hourSelectId:"startHour", minuteSelectId:"startMinute", isStart:true});
 Clock({id:"end",   canvasId:"endClock",   hourSelectId:"endHour",   minuteSelectId:"endMinute",   isStart:false});
 </script>
