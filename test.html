@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>24-Hour Clock — Numbers + Hand Lock</title>
+<title>24-Hour Clock — Date & Time Picker</title>
 <style>
   :root{ --hour:#2563eb; --min:#dc2626; }
   body{font-family:Arial,Helvetica,sans-serif;text-align:center;background:#f0f0f0;margin:20px}
@@ -18,7 +18,6 @@
   select{margin:6px;padding:6px 10px;font-size:16px}
   .row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;align-items:center}
   .info{margin-top:16px;font-size:16px}
-  .legend{font-size:13px;opacity:.8}
   .ampm{margin-top:4px;font-size:14px;opacity:.9}
   .dates{background:#fff;border-radius:16px;max-width:420px;margin:18px auto;padding:14px;box-shadow:0 4px 18px rgba(0,0,0,.08);border:2px solid #0ea5e9}
   .dates .row{gap:16px}
@@ -28,9 +27,9 @@
 </head>
 <body>
 
-<h2>24-Hour Clock — Choose Date, then Time</h2>
+<h2>24-Hour Clock — Choose Date & Time</h2>
 
-<!-- NEW: Date pickers -->
+<!-- Date pickers -->
 <div class="dates">
   <h3>Pick Dates</h3>
   <div class="row">
@@ -68,9 +67,9 @@
 </div>
 
 <div class="info">
-  <div>Start: <span id="startDateOut">--</span> <span id="startTime">--:--</span></div>
-  <div>End: <span id="endDateOut">--</span> <span id="endTime">--:--</span></div>
-  <div>Difference: <span id="diffTime">--:--</span></div>
+  <div>Start: <span id="startTime">--</span></div>
+  <div>End: <span id="endTime">--</span></div>
+  <div>Difference: <span id="diffTime">--</span></div>
 </div>
 
 <script>
@@ -82,23 +81,14 @@ const pad = n => String(n).padStart(2,"0");
 const hmFromMin = m => ({h: Math.floor((m%1440+1440)%1440/60), m: ((m%60)+60)%60});
 const minFromHM = (h,m) => ((h*60+m)%1440+1440)%1440;
 
-/* NEW: date helpers */
+// date helpers
 const todayISO = () => {
   const d = new Date();
   const y = d.getFullYear(), m = d.getMonth()+1, day = d.getDate();
   return `${y}-${pad(m)}-${pad(day)}`;
 };
-const fmtDateNice = (iso) => {
-  if(!iso) return "--";
-  const [y,m,d] = iso.split("-").map(Number);
-  const dt = new Date(y, m-1, d);
-  const wk = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()];
-  const mos = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()];
-  return `${wk}, ${d} ${mos} ${y}`;
-};
 const tsFromDateAndMinutes = (iso, totalMins) => {
   const {h,m} = hmFromMin(totalMins);
-  // Local time; construct yyyy-mm-ddThh:mm for parsing
   return new Date(`${iso}T${pad(h)}:${pad(m)}:00`).getTime();
 };
 
@@ -111,22 +101,18 @@ const fmt12FromMin = (mins) => {
 };
 
 function updateSummary(){
-  // 24h readouts
   const sHM = hmFromMin(startTotal), eHM = hmFromMin(endTotal);
-  document.getElementById("startTime").textContent = `${pad(sHM.h)}:${pad(sHM.m)} (${fmt12FromMin(startTotal)})`;
-  document.getElementById("endTime").textContent   = `${pad(eHM.h)}:${pad(eHM.m)} (${fmt12FromMin(endTotal)})`;
+  const startDateText = startDateStr ? `${startDateStr} ${pad(sHM.h)}:${pad(sHM.m)}` : "--";
+  const endDateText   = endDateStr   ? `${endDateStr} ${pad(eHM.h)}:${pad(eHM.m)}` : "--";
 
-  // date readouts
-  document.getElementById("startDateOut").textContent = fmtDateNice(startDateStr);
-  document.getElementById("endDateOut").textContent   = fmtDateNice(endDateStr);
+  document.getElementById("startTime").textContent = startDateText + ` (${fmt12FromMin(startTotal)})`;
+  document.getElementById("endTime").textContent   = endDateText   + ` (${fmt12FromMin(endTotal)})`;
 
-  // keep the small per-clock 12h lines in sync
-  const startAm = document.getElementById("startAmPm");
-  const endAm = document.getElementById("endAmPm");
-  if (startAm) startAm.textContent = `12-hour: ${fmt12FromMin(startTotal)}`;
-  if (endAm)   endAm.textContent   = `12-hour: ${fmt12FromMin(endTotal)}`;
+  // small AM/PM display
+  document.getElementById("startAmPm").textContent = `12-hour: ${fmt12FromMin(startTotal)}`;
+  document.getElementById("endAmPm").textContent   = `12-hour: ${fmt12FromMin(endTotal)}`;
 
-  // difference using full datetime
+  // calculate difference
   let startTs = tsFromDateAndMinutes(startDateStr, startTotal);
   let endTs   = tsFromDateAndMinutes(endDateStr,   endTotal);
 
@@ -137,7 +123,7 @@ function updateSummary(){
 
   const diffMs = endTs - startTs;
   if (isNaN(diffMs)) {
-    document.getElementById("diffTime").textContent = `--:--`;
+    document.getElementById("diffTime").textContent = `--`;
     return;
   }
   const totalMin = Math.max(0, Math.round(diffMs/60000));
@@ -160,7 +146,6 @@ function scaleCanvas(canvas){
   return {ctx, r: Math.min(rect.width, rect.height)/2};
 }
 
-/* distance from point P to line segment AB */
 function distPointToSeg(px,py, ax,ay, bx,by){
   const ABx=bx-ax, ABy=by-ay, APx=px-ax, APy=py-ay;
   const ab2 = ABx*ABx + ABy*ABy;
@@ -177,7 +162,7 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   const btnMinute = document.querySelector(`.btn.minute[data-target="${id}"]`);
 
   const HOUR_W = 5, HOUR_W_ACTIVE = 7;
-  const MIN_W  = 5, MIN_W_ACTIVE  = 7;
+  const MIN_W  = 4, MIN_W_ACTIVE  = 6;
   const HITBOX_RADIUS = 18;
 
   let activeHand = "hour";
@@ -204,10 +189,10 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     ctx.translate(r,r);
     ctx.clearRect(-r,-r,2*r,2*r);
 
-    // dial ring
+    // dial
     ctx.beginPath(); ctx.arc(0,0,r-4,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
 
-    // numbers 0–23 (bold) + tick dots
+    // numbers + ticks
     ctx.save();
     ctx.fillStyle = "#111";
     ctx.font = "bold 14px Arial";
@@ -217,37 +202,36 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
       const a = (i/24)*Math.PI*2 - Math.PI/2;
       const nx = Math.cos(a)*(r-42), ny = Math.sin(a)*(r-42);
       ctx.fillText(i, nx, ny);
-
       const tx = Math.cos(a)*(r-24), ty = Math.sin(a)*(r-24);
       ctx.beginPath(); ctx.arc(tx,ty,2,0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
 
     // hour hand (shorter)
-const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
-const HOUR_LEN = r - 90;   // shorter, stays well inside the numbers
-ctx.save();
-ctx.strokeStyle = "var(--hour)";
-ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W;
-ctx.beginPath(); ctx.moveTo(0,0);
-ctx.lineTo(Math.cos(ha)*HOUR_LEN, Math.sin(ha)*HOUR_LEN);
-ctx.stroke();
-ctx.restore();
+    const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
+    const HOUR_LEN = r - 90;
+    ctx.save();
+    ctx.strokeStyle = "var(--hour)";
+    ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W;
+    ctx.beginPath(); ctx.moveTo(0,0);
+    ctx.lineTo(Math.cos(ha)*HOUR_LEN, Math.sin(ha)*HOUR_LEN);
+    ctx.stroke();
+    ctx.restore();
 
-// minute hand (longer)
-const ma = (m/60)*Math.PI*2 - Math.PI/2;
-const MIN_LEN = r - 30;   // much longer, closer to outer ring
-ctx.save();
-ctx.strokeStyle = "var(--min)";
-ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
-ctx.shadowColor = "rgba(220,38,38,.40)";
-ctx.shadowBlur  = 6;
-ctx.beginPath(); ctx.moveTo(0,0);
-ctx.lineTo(Math.cos(ma)*MIN_LEN, Math.sin(ma)*MIN_LEN);
-ctx.stroke();
-ctx.restore();
+    // minute hand (longer)
+    const ma = (m/60)*Math.PI*2 - Math.PI/2;
+    const MIN_LEN = r - 30;
+    ctx.save();
+    ctx.strokeStyle = "var(--min)";
+    ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
+    ctx.shadowColor = "rgba(220,38,38,.40)";
+    ctx.shadowBlur  = 6;
+    ctx.beginPath(); ctx.moveTo(0,0);
+    ctx.lineTo(Math.cos(ma)*MIN_LEN, Math.sin(ma)*MIN_LEN);
+    ctx.stroke();
+    ctx.restore();
 
-    // center cap
+    // center dot
     ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fillStyle="#111"; ctx.fill();
   }
 
@@ -255,9 +239,6 @@ ctx.restore();
     const total = minFromHM(h,m);
     setTotal(total);
     updateSummary();
-    const targetId = isStart ? "startAmPm" : "endAmPm";
-    const el = document.getElementById(targetId);
-    if (el) el.textContent = `12-hour: ${fmt12FromMin(total)}`;
     draw();
   }
 
@@ -269,8 +250,8 @@ ctx.restore();
     const py = clientY - rect.top  - rect.height/2;
     const r = Math.min(rect.width, rect.height)/2;
 
-    const HLEN = r - 65;
-    const MLEN = r - 65;
+    const HLEN = r - 90;
+    const MLEN = r - 30;
 
     if(activeHand==="hour"){
       const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
@@ -316,28 +297,20 @@ ctx.restore();
   commit();
 }
 
-/* build both clocks */
+// build both clocks
 Clock({id:"start", canvasId:"startClock", hourSelectId:"startHour", minuteSelectId:"startMinute", isStart:true});
 Clock({id:"end",   canvasId:"endClock",   hourSelectId:"endHour",   minuteSelectId:"endMinute",   isStart:false});
 
-/* NEW: initialize date inputs and wiring */
+// initialize date inputs
 const startDateInput = document.getElementById("startDate");
 const endDateInput   = document.getElementById("endDate");
-
-// default both to today
 startDateStr = todayISO();
 endDateStr   = todayISO();
 startDateInput.value = startDateStr;
 endDateInput.value   = endDateStr;
 
-startDateInput.addEventListener("change", e => {
-  startDateStr = e.target.value || startDateStr;
-  updateSummary();
-});
-endDateInput.addEventListener("change", e => {
-  endDateStr = e.target.value || endDateStr;
-  updateSummary();
-});
+startDateInput.addEventListener("change", e => { startDateStr = e.target.value || startDateStr; updateSummary(); });
+endDateInput.addEventListener("change", e => { endDateStr = e.target.value || endDateStr; updateSummary(); });
 
 updateSummary();
 </script>
