@@ -90,21 +90,21 @@ const tsFromDateAndMinutes = (iso, totalMins) => {
 };
 // DD/MM/YYYY formatter
 const fmtDDMMYYYY = (iso) => {
-  if(!iso) return "--";
+  if (!iso) return "--";
   const [y,m,d] = iso.split("-").map(Number);
   return `${pad(d)}/${pad(m)}/${y}`;
 };
 
 function updateSummary(){
   const sHM = hmFromMin(startTotal), eHM = hmFromMin(endTotal);
+  // Show ONLY 24h and DD/MM/YYYY (no weekday, no AM/PM)
   const startDateText = startDateStr ? `${fmtDDMMYYYY(startDateStr)} ${pad(sHM.h)}:${pad(sHM.m)}` : "--";
   const endDateText   = endDateStr   ? `${fmtDDMMYYYY(endDateStr)} ${pad(eHM.h)}:${pad(eHM.m)}` : "--";
 
-  // 24-hour ONLY output (copy/paste friendly)
   document.getElementById("startTime").textContent = startDateText;
   document.getElementById("endTime").textContent   = endDateText;
 
-  // calculate difference
+  // difference using full datetime
   let startTs = tsFromDateAndMinutes(startDateStr, startTotal);
   let endTs   = tsFromDateAndMinutes(endDateStr,   endTotal);
 
@@ -119,13 +119,11 @@ function updateSummary(){
     return;
   }
   const totalMin = Math.max(0, Math.round(diffMs/60000));
-  const days = Math.floor(totalMin / 1440);
-  const hrs  = Math.floor((totalMin % 1440) / 60);
-  const mins = totalMin % 60;
-  const parts = [];
-  if (days) parts.push(`${days}d`);
-  parts.push(`${hrs}h ${mins}m`);
-  document.getElementById("diffTime").textContent = parts.join(" ");
+
+  // Show HH:MM (hours can exceed 24 if spanning days)
+  const hh = Math.floor(totalMin / 60);
+  const mm = totalMin % 60;
+  document.getElementById("diffTime").textContent = `${pad(hh)}:${pad(mm)}`;
 }
 
 function scaleCanvas(canvas){
