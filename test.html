@@ -18,7 +18,6 @@
   select{margin:6px;padding:6px 10px;font-size:16px}
   .row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;align-items:center}
   .info{margin-top:16px;font-size:16px}
-  .ampm{margin-top:4px;font-size:14px;opacity:.9}
   .dates{background:#fff;border-radius:16px;max-width:420px;margin:18px auto;padding:14px;box-shadow:0 4px 18px rgba(0,0,0,.08);border:2px solid #0ea5e9}
   .dates .row{gap:16px}
   input[type="date"]{padding:6px 10px;font-size:16px}
@@ -49,7 +48,6 @@
     Hour: <select id="startHour"></select>
     Minute: <select id="startMinute"></select>
   </div>
-  <div class="ampm" id="startAmPm">12-hour: --:-- --</div>
 </div>
 
 <div class="clock-wrap" style="border:2px solid #dc2626">
@@ -63,7 +61,6 @@
     Hour: <select id="endHour"></select>
     Minute: <select id="endMinute"></select>
   </div>
-  <div class="ampm" id="endAmPm">12-hour: --:-- --</div>
 </div>
 
 <div class="info">
@@ -92,25 +89,13 @@ const tsFromDateAndMinutes = (iso, totalMins) => {
   return new Date(`${iso}T${pad(h)}:${pad(m)}:00`).getTime();
 };
 
-// 12h helpers
-const fmt12FromMin = (mins) => {
-  const {h, m} = hmFromMin(mins);
-  const period = h < 12 ? "AM" : "PM";
-  let h12 = h % 12; if (h12 === 0) h12 = 12;
-  return `${h12}:${pad(m)} ${period}`;
-};
-
 function updateSummary(){
   const sHM = hmFromMin(startTotal), eHM = hmFromMin(endTotal);
-  const startDateText = startDateStr ? `${startDateStr} ${pad(sHM.h)}:${pad(sHM.m)}` : "--";
-  const endDateText   = endDateStr   ? `${endDateStr} ${pad(eHM.h)}:${pad(eHM.m)}` : "--";
+  const startDateText = startDateStr ? `${new Date(startDateStr).toDateString()} ${pad(sHM.h)}:${pad(sHM.m)}` : "--";
+  const endDateText   = endDateStr   ? `${new Date(endDateStr).toDateString()} ${pad(eHM.h)}:${pad(eHM.m)}` : "--";
 
-  document.getElementById("startTime").textContent = startDateText + ` (${fmt12FromMin(startTotal)})`;
-  document.getElementById("endTime").textContent   = endDateText   + ` (${fmt12FromMin(endTotal)})`;
-
-  // small AM/PM display
-  document.getElementById("startAmPm").textContent = `12-hour: ${fmt12FromMin(startTotal)}`;
-  document.getElementById("endAmPm").textContent   = `12-hour: ${fmt12FromMin(endTotal)}`;
+  document.getElementById("startTime").textContent = startDateText;
+  document.getElementById("endTime").textContent   = endDateText;
 
   // calculate difference
   let startTs = tsFromDateAndMinutes(startDateStr, startTotal);
