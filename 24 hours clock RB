@@ -19,6 +19,7 @@
   .row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;align-items:center}
   .info{margin-top:16px;font-size:16px}
   .legend{font-size:13px;opacity:.8}
+  .ampm{margin-top:4px;font-size:14px;opacity:.9} /* NEW: subtle 12h line */
   @media (max-width:420px){ canvas{width:260px;height:260px} }
 </style>
 </head>
@@ -37,6 +38,8 @@
     Hour: <select id="startHour"></select>
     Minute: <select id="startMinute"></select>
   </div>
+  <!-- NEW: 12h readout -->
+  <div class="ampm" id="startAmPm">12-hour: --:-- --</div>
 </div>
 
 <div class="clock-wrap" style="border:2px solid #dc2626">
@@ -50,6 +53,8 @@
     Hour: <select id="endHour"></select>
     Minute: <select id="endMinute"></select>
   </div>
+  <!-- NEW: 12h readout -->
+  <div class="ampm" id="endAmPm">12-hour: --:-- --</div>
 </div>
 
 <div class="info">
@@ -66,12 +71,26 @@ const pad = n => String(n).padStart(2,"0");
 const hmFromMin = m => ({h: Math.floor((m%1440+1440)%1440/60), m: ((m%60)+60)%60});
 const minFromHM = (h,m) => ((h*60+m)%1440+1440)%1440;
 
+// NEW: 12h helpers
+const fmt12FromMin = (mins) => {
+  const {h, m} = hmFromMin(mins);
+  const period = h < 12 ? "AM" : "PM";
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  return `${h12}:${pad(m)} ${period}`;
+};
+
 function updateSummary(){
   const s = hmFromMin(startTotal), e = hmFromMin(endTotal);
   document.getElementById("startTime").textContent = `${pad(s.h)}:${pad(s.m)}`;
   document.getElementById("endTime").textContent   = `${pad(e.h)}:${pad(e.m)}`;
   let diff = endTotal - startTotal; if(diff<0) diff += 1440;
   document.getElementById("diffTime").textContent = `${Math.floor(diff/60)}h ${diff%60}m`;
+
+  // NEW: keep the main readouts in sync too (optional)
+  const startAm = document.getElementById("startAmPm");
+  const endAm = document.getElementById("endAmPm");
+  if (startAm) startAm.textContent = `12-hour: ${fmt12FromMin(startTotal)}`;
+  if (endAm)   endAm.textContent   = `12-hour: ${fmt12FromMin(endTotal)}`;
 }
 
 function scaleCanvas(canvas){
@@ -164,7 +183,7 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     ctx.save();
     ctx.strokeStyle = "var(--min)";
     ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
-    ctx.shadowColor = "rgba(220,38,38,.40)"; // softer glow so it won't spill onto numbers
+    ctx.shadowColor = "rgba(220,38,38,.40)";
     ctx.shadowBlur  = 6;
     ctx.beginPath(); ctx.moveTo(0,0);
     ctx.lineTo(Math.cos(ma)*MIN_LEN, Math.sin(ma)*MIN_LEN);
@@ -175,7 +194,16 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fillStyle="#111"; ctx.fill();
   }
 
-  function commit(){ setTotal(minFromHM(h,m)); updateSummary(); draw(); }
+  function commit(){
+    const total = minFromHM(h,m);
+    setTotal(total);
+    updateSummary();
+    // NEW: update the per-clock 12h line immediately
+    const targetId = isStart ? "startAmPm" : "endAmPm";
+    const el = document.getElementById(targetId);
+    if (el) el.textContent = `12-hour: ${fmt12FromMin(total)}`;
+    draw();
+  }
 
   const angleFrom = (x,y)=> (Math.atan2(y,x)+Math.PI/2+Math.PI*2)%(Math.PI*2);
 
