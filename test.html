@@ -223,29 +223,29 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
     }
     ctx.restore();
 
-    // hour hand
-    const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
-    const HOUR_LEN = r - 65;
-    ctx.save();
-    ctx.strokeStyle = "var(--hour)";
-    ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W;
-    ctx.beginPath(); ctx.moveTo(0,0);
-    ctx.lineTo(Math.cos(ha)*HOUR_LEN, Math.sin(ha)*HOUR_LEN);
-    ctx.stroke();
-    ctx.restore();
+    // hour hand (shorter)
+const ha = ((h + m/60)/24)*Math.PI*2 - Math.PI/2;
+const HOUR_LEN = r - 80;   // shorter, so hour hand is smaller
+ctx.save();
+ctx.strokeStyle = "var(--hour)";
+ctx.lineWidth   = activeHand==="hour" ? HOUR_W_ACTIVE : HOUR_W;
+ctx.beginPath(); ctx.moveTo(0,0);
+ctx.lineTo(Math.cos(ha)*HOUR_LEN, Math.sin(ha)*HOUR_LEN);
+ctx.stroke();
+ctx.restore();
 
-    // minute hand
-    const ma = (m/60)*Math.PI*2 - Math.PI/2;
-    const MIN_LEN = r - 65;
-    ctx.save();
-    ctx.strokeStyle = "var(--min)";
-    ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
-    ctx.shadowColor = "rgba(220,38,38,.40)";
-    ctx.shadowBlur  = 6;
-    ctx.beginPath(); ctx.moveTo(0,0);
-    ctx.lineTo(Math.cos(ma)*MIN_LEN, Math.sin(ma)*MIN_LEN);
-    ctx.stroke();
-    ctx.restore();
+// minute hand (longer)
+const ma = (m/60)*Math.PI*2 - Math.PI/2;
+const MIN_LEN = r - 40;   // longer, so minute hand is taller
+ctx.save();
+ctx.strokeStyle = "var(--min)";
+ctx.lineWidth   = activeHand==="minute" ? MIN_W_ACTIVE : MIN_W;
+ctx.shadowColor = "rgba(220,38,38,.40)";
+ctx.shadowBlur  = 6;
+ctx.beginPath(); ctx.moveTo(0,0);
+ctx.lineTo(Math.cos(ma)*MIN_LEN, Math.sin(ma)*MIN_LEN);
+ctx.stroke();
+ctx.restore();
 
     // center cap
     ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fillStyle="#111"; ctx.fill();
