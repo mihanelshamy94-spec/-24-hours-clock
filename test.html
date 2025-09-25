@@ -88,12 +88,19 @@ const tsFromDateAndMinutes = (iso, totalMins) => {
   const {h,m} = hmFromMin(totalMins);
   return new Date(`${iso}T${pad(h)}:${pad(m)}:00`).getTime();
 };
+// DD/MM/YYYY formatter
+const fmtDDMMYYYY = (iso) => {
+  if(!iso) return "--";
+  const [y,m,d] = iso.split("-").map(Number);
+  return `${pad(d)}/${pad(m)}/${y}`;
+};
 
 function updateSummary(){
   const sHM = hmFromMin(startTotal), eHM = hmFromMin(endTotal);
-  const startDateText = startDateStr ? `${new Date(startDateStr).toDateString()} ${pad(sHM.h)}:${pad(sHM.m)}` : "--";
-  const endDateText   = endDateStr   ? `${new Date(endDateStr).toDateString()} ${pad(eHM.h)}:${pad(eHM.m)}` : "--";
+  const startDateText = startDateStr ? `${fmtDDMMYYYY(startDateStr)} ${pad(sHM.h)}:${pad(sHM.m)}` : "--";
+  const endDateText   = endDateStr   ? `${fmtDDMMYYYY(endDateStr)} ${pad(eHM.h)}:${pad(eHM.m)}` : "--";
 
+  // 24-hour ONLY output (copy/paste friendly)
   document.getElementById("startTime").textContent = startDateText;
   document.getElementById("endTime").textContent   = endDateText;
 
@@ -151,19 +158,18 @@ function Clock({id, canvasId, hourSelectId, minuteSelectId, isStart}){
   const HITBOX_RADIUS = 18;
 
   let activeHand = "hour";
-  const getTotal = ()=> isStart ? startTotal : endTotal;
   const setTotal = v => { if(isStart) startTotal=v; else endTotal=v; };
+  let {h,m} = hmFromMin(isStart ? startTotal : endTotal);
 
   // dropdowns
   for(let i=0;i<24;i++){ const o=document.createElement("option"); o.value=i; o.text=i; hourSel.appendChild(o); }
   for(let i=0;i<60;i++){ const o=document.createElement("option"); o.value=i; o.text=pad(i); minSel.appendChild(o); }
-  let {h,m} = hmFromMin(getTotal()); hourSel.value=h; minSel.value=m;
+  hourSel.value=h; minSel.value=m;
 
   function setActive(hand){
-    activeHand = hand;
     btnHour.setAttribute("aria-pressed", hand==="hour");
     btnMinute.setAttribute("aria-pressed", hand==="minute");
-    draw();
+    activeHand = hand; draw();
   }
 
   btnHour.addEventListener("click", ()=>setActive("hour"));
